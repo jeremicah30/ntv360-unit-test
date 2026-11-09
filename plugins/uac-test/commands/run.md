@@ -1,7 +1,7 @@
 ---
 description: Generate and run unit tests from a Jira ticket's acceptance criteria (UAC)
 argument-hint: <JIRA-KEY e.g. NTV-123>
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Read, Write, Edit, Glob, Grep
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Bash(npm run test:ui:*), Read, Write, Edit, Glob, Grep
 ---
 
 Run the UAC unit-test workflow for Jira ticket **$ARGUMENTS**. If no ticket key was given, ask for one and stop.
@@ -27,7 +27,13 @@ Ask the user to approve the table. Do not write any spec before they approve.
 - Edit spec files only. If a spec needs a source change (for example a missing test id), ask first.
 
 ## 4. Run only those specs
-Use the targeted run command from the repo's testing section. Never run the full suite as a gate.
+First open the test UI so the user can watch the run:
+- If `package.json` has a `test:ui` script and it is not already running, start `npm run test:ui` in the background.
+- Wait for the `UI started at http://...?token=...` line and give the user that full URL. The token changes every start; never give the bare URL.
+- If there is no `test:ui` script, say so in one line and continue.
+- The UI is watch mode and never exits. Do not read results from it.
+
+Then use the targeted run command from the repo's testing section. Never run the full suite as a gate.
 - A test that fails because of a mistake in the test: fix it and rerun.
 - A test that fails because the code does not meet the criterion: do not change the assertion. Report it.
 - If the command itself fails (runner not set up, compile error in unrelated specs), show the error and stop. Do not install packages or edit build config yourself.
