@@ -1,0 +1,96 @@
+<section class="rounded-2xl bg-white/70 p-5 shadow-sm" aria-labelledby="sales-title">
+  <div class="mb-3 flex items-center justify-between">
+    <h2 id="sales-title" class="font-semibold text-slate-800">Sales Reports</h2>
+    <select
+      aria-label="Report period"
+      class="rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-sm text-slate-600 outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+      [value]="period()"
+      (change)="selectPeriod($any($event.target).value)"
+    >
+      @for (p of periods; track p.value) {
+        <option [value]="p.value">{{ p.label }}</option>
+      }
+    </select>
+  </div>
+
+  @if (sales.isLoading()) {
+    <div data-testid="chart-skeleton" class="h-60 animate-pulse rounded-xl bg-slate-100/70" aria-busy="true" aria-label="Loading sales chart"></div>
+  } @else if (sales.error()) {
+    <p role="alert" class="grid h-60 place-items-center text-sm text-red-500">Couldn't load sales data. Please try again later.</p>
+  } @else if (!points().length) {
+    <p class="grid h-60 place-items-center text-sm text-slate-500">No sales data for this period.</p>
+  } @else {
+    <svg viewBox="0 0 640 260" class="w-full" role="img" aria-labelledby="sales-title" aria-describedby="sales-table" (mouseleave)="active.set(null)">
+      <defs>
+        <linearGradient id="sales-area" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#60a5fa" stop-opacity="0.25" />
+          <stop offset="1" stop-color="#60a5fa" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="sales-bar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#60a5fa" stop-opacity="0.55" />
+          <stop offset="1" stop-color="#60a5fa" stop-opacity="0.08" />
+        </linearGradient>
+      </defs>
+
+      <!-- Y axis labels -->
+      @for (tick of yTicks; track tick) {
+        <text data-testid="y-tick" x="20" [attr.y]="yFor(tick)" text-anchor="end" dominant-baseline="central" class="fill-slate-400 text-[11px]">{{ tick }}</text>
+      }
+
+      <!-- Highlight bar under hovered point -->
+      @if (activePoint(); as ap) {
+        <rect [attr.x]="ap.x - 14" [attr.y]="ap.y" width="28" [attr.height]="plot.bottom - ap.y" fill="url(#sales-bar)" />
+      }
+
+      <!-- Line and area -->
+      <path [attr.d]="areaPath()" fill="url(#sales-area)" />
+      <path [attr.d]="linePath()" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" />
+
+      <!-- Points, X labels and hover targets -->
+      @for (p of points(); track p.label; let i = $index) {
+        <circle
+          data-testid="data-point"
+          [attr.cx]="p.x"
+          [attr.cy]="p.y"
+          [attr.r]="i === active() ? 6 : 4.5"
+          [attr.fill]="i === active() ? '#3b82f6' : '#fff'"
+          stroke="#3b82f6"
+          stroke-width="2.5"
+        />
+        <text data-testid="x-label" [attr.x]="p.x" y="248" text-anchor="middle" class="text-[11px]" [class]="i === active() ? 'fill-slate-700' : 'fill-slate-400'">
+          {{ p.label }}
+        </text>
+        <rect
+          data-testid="hover-target"
+          [attr.x]="p.x - columnWidth() / 2"
+          [attr.y]="plot.top"
+          [attr.width]="columnWidth()"
+          [attr.height]="plot.bottom - plot.top"
+          fill="transparent"
+          (mouseenter)="active.set(i)"
+        />
+      }
+
+      <!-- Tooltip -->
+      @if (activePoint(); as ap) {
+        <g data-testid="tooltip" [attr.transform]="'translate(' + ap.x + ',' + (ap.y - 14) + ')'" pointer-events="none">
+          <rect x="-32" y="-40" width="64" height="38" rx="6" fill="#0f172a" />
+          <path d="M-6 -2 L0 5 L6 -2 Z" fill="#0f172a" />
+          <text y="-27" text-anchor="middle" class="fill-slate-300 text-[10px]">Sales</text>
+          <text y="-11" text-anchor="middle" class="fill-white text-[13px] font-semibold">{{ ap.sales.toLocaleString('en-US') }}</text>
+        </g>
+      }
+    </svg>
+
+    <!-- Text alternative for screen readers -->
+    <table id="sales-table" class="sr-only">
+      <caption>Sales by time</caption>
+      <thead><tr><th scope="col">Time</th><th scope="col">Sales</th></tr></thead>
+      <tbody>
+        @for (p of points(); track p.label) {
+          <tr><td>{{ p.label }}</td><td>{{ p.sales }}</td></tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

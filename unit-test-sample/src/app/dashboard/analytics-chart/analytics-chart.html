@@ -1,0 +1,69 @@
+<section class="rounded-2xl bg-white/70 p-5 shadow-sm" aria-labelledby="analytics-title">
+  <div class="mb-3 flex items-center justify-between">
+    <h2 id="analytics-title" class="font-semibold text-slate-800">Analytics</h2>
+    <button type="button" aria-label="More options" class="text-slate-400 hover:text-slate-600">
+      <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+        <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
+      </svg>
+    </button>
+  </div>
+
+  @if (analytics.isLoading()) {
+    <div data-testid="analytics-skeleton" class="h-56 animate-pulse rounded-xl bg-slate-100/70" aria-busy="true" aria-label="Loading analytics"></div>
+  } @else if (analytics.error()) {
+    <p role="alert" class="grid h-56 place-items-center text-sm text-red-500">Couldn't load analytics.</p>
+  } @else if (!days().length) {
+    <p class="grid h-56 place-items-center text-sm text-slate-500">No analytics data yet.</p>
+  } @else {
+    <svg viewBox="0 0 300 230" class="w-full" role="img" aria-labelledby="analytics-title" aria-describedby="analytics-table" (mouseleave)="active.set(null)">
+      <defs>
+        <linearGradient id="bar-previous" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#60a5fa" />
+          <stop offset="1" stop-color="#93c5fd" stop-opacity="0.6" />
+        </linearGradient>
+        <linearGradient id="bar-current" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#4f46e5" />
+          <stop offset="1" stop-color="#818cf8" stop-opacity="0.6" />
+        </linearGradient>
+      </defs>
+
+      @for (tick of yTicks; track tick) {
+        <text data-testid="analytics-y-tick" x="14" [attr.y]="yFor(tick)" text-anchor="middle" dominant-baseline="central" class="fill-slate-400 text-[9px]">{{ tick }}</text>
+      }
+
+      @for (d of days(); track d.day) {
+        @for (b of d.bars; track b.key) {
+          <rect
+            data-testid="analytics-bar"
+            [attr.x]="b.x"
+            [attr.y]="b.y"
+            [attr.width]="barWidth"
+            [attr.height]="b.height"
+            rx="2"
+            [attr.fill]="'url(#bar-' + b.series + ')'"
+            [attr.opacity]="active() && active() !== b.key ? 0.6 : 1"
+            (mouseenter)="active.set(b.key)"
+          />
+        }
+        <text data-testid="analytics-day" [attr.x]="d.center" y="218" text-anchor="middle" class="fill-slate-500 text-[9px]">{{ d.day }}</text>
+      }
+
+      @if (activeBar(); as b) {
+        <g data-testid="analytics-tooltip" [attr.transform]="'translate(' + (b.x + barWidth / 2) + ',' + (b.y - 6) + ')'" pointer-events="none">
+          <rect x="-17" y="-16" width="34" height="14" rx="3" fill="#0f172a" />
+          <text y="-6.5" text-anchor="middle" class="fill-white text-[8px] font-medium">{{ formatAmount(b.amount) }}</text>
+        </g>
+      }
+    </svg>
+
+    <table id="analytics-table" class="sr-only">
+      <caption>Analytics by day</caption>
+      <thead><tr><th scope="col">Day</th><th scope="col">Previous</th><th scope="col">Current</th></tr></thead>
+      <tbody>
+        @for (d of days(); track d.day) {
+          <tr><td>{{ d.day }}</td><td>{{ d.bars[0].amount }}</td><td>{{ d.bars[1].amount }}</td></tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

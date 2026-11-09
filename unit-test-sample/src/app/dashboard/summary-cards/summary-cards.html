@@ -1,0 +1,55 @@
+@if (summary.isLoading()) {
+  <div class="grid gap-4 sm:grid-cols-3" aria-busy="true" aria-label="Loading summary">
+    @for (i of [1, 2, 3]; track i) {
+      <div data-testid="summary-skeleton" class="h-32 animate-pulse rounded-2xl bg-white/60"></div>
+    }
+  </div>
+} @else if (summary.error()) {
+  <p role="alert" class="rounded-2xl bg-white/70 p-6 text-sm text-red-500 shadow-sm">
+    Couldn't load the summary. Please try again later.
+  </p>
+} @else if (summary.hasValue() && summary.value().length) {
+  <div class="grid gap-4 sm:grid-cols-3">
+    @for (card of summary.value(); track card.key) {
+      <article data-testid="summary-card" class="relative rounded-2xl bg-white/70 p-4 shadow-sm">
+        <button type="button" aria-label="More options" class="absolute right-3 top-3 text-slate-400 hover:text-slate-600">
+          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+            <circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" />
+          </svg>
+        </button>
+        <div class="mb-3 grid size-9 place-items-center rounded-lg" [class]="style[card.key].tile">
+          <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            @for (d of style[card.key].icon; track $index) {
+              <path [attr.d]="d" />
+            }
+          </svg>
+        </div>
+        <div class="flex items-end justify-between">
+          <div>
+            <p data-testid="summary-count" class="text-2xl font-semibold text-slate-800">{{ card.count }}+</p>
+            <p data-testid="summary-label" class="text-xs text-slate-500">{{ card.label }}</p>
+          </div>
+          <svg viewBox="0 0 40 40" class="size-12 -rotate-90" role="img" [attr.aria-label]="card.percent + '%'">
+            <circle cx="20" cy="20" r="16" fill="none" stroke="#e2e8f0" stroke-width="4" />
+            <circle
+              data-testid="summary-ring"
+              cx="20"
+              cy="20"
+              r="16"
+              fill="none"
+              stroke-width="4"
+              stroke-linecap="round"
+              [attr.stroke]="style[card.key].ring"
+              [attr.stroke-dasharray]="ringDash(card.percent)"
+            />
+            <text x="20" y="20" transform="rotate(90 20 20)" text-anchor="middle" dominant-baseline="central" class="fill-slate-700 text-[9px] font-medium">
+              {{ card.percent }}%
+            </text>
+          </svg>
+        </div>
+      </article>
+    }
+  </div>
+} @else {
+  <p class="rounded-2xl bg-white/70 p-6 text-sm text-slate-500 shadow-sm">No summary data available.</p>
+}

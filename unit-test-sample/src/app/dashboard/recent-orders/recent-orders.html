@@ -1,0 +1,76 @@
+<section class="rounded-2xl bg-white/70 p-5 shadow-sm" aria-labelledby="orders-title">
+  <div class="mb-3 flex items-center justify-between">
+    <h2 id="orders-title" class="font-semibold text-slate-800">Recent Order</h2>
+    @if (hasMore()) {
+      <button
+        type="button"
+        (click)="showMore()"
+        class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-500"
+      >
+        See more
+      </button>
+    }
+  </div>
+
+  @if (orders.isLoading()) {
+    <div class="space-y-2" aria-busy="true" aria-label="Loading orders">
+      @for (i of [1, 2, 3, 4]; track i) {
+        <div data-testid="orders-skeleton" class="h-10 animate-pulse rounded-lg bg-slate-100/70"></div>
+      }
+    </div>
+  } @else if (orders.error()) {
+    <p role="alert" class="py-8 text-center text-sm text-red-500">Couldn't load recent orders. Please try again later.</p>
+  } @else if (!hasOrders()) {
+    <p data-testid="orders-empty" class="py-8 text-center text-sm text-slate-500">No recent orders yet.</p>
+  } @else if (!rows().length) {
+    <p data-testid="orders-no-match" class="py-8 text-center text-sm text-slate-500">No orders match "{{ query() }}".</p>
+  } @else {
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="text-xs text-slate-500">
+            @for (col of columns; track col.key) {
+              <th scope="col" class="px-3 py-2 font-medium" [attr.aria-sort]="ariaSort(col.key)">
+                <button
+                  type="button"
+                  (click)="toggleSort(col.key)"
+                  class="inline-flex items-center gap-1 rounded hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-500"
+                >
+                  {{ col.label }}
+                  <svg
+                    viewBox="0 0 24 24"
+                    class="size-3 transition-transform"
+                    [class]="ariaSort(col.key) === 'ascending' ? 'rotate-180' : ''"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 9l6 6 6-6z" />
+                  </svg>
+                </button>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of rows(); track order.id; let odd = $odd) {
+            <tr data-testid="order-row" [class]="odd ? 'bg-blue-50/60' : ''">
+              <td class="rounded-l-lg px-3 py-2.5 text-slate-600">{{ order.id }}</td>
+              <td class="px-3 py-2.5">
+                <div class="flex items-center gap-3">
+                  <img [src]="order.image" alt="" width="28" height="28" class="size-7 rounded-md shadow-sm" />
+                  <span class="text-slate-800">{{ order.product }}</span>
+                </div>
+              </td>
+              <td class="px-3 py-2.5">
+                <span data-testid="status-badge" class="inline-block min-w-20 rounded-md px-2.5 py-1 text-center text-xs" [class]="statusClass[order.status]">
+                  {{ order.status }}
+                </span>
+              </td>
+              <td data-testid="order-price" class="rounded-r-lg px-3 py-2.5 font-medium text-slate-800">{{ order.price | currency: 'USD' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

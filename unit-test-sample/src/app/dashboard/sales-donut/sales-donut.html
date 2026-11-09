@@ -1,0 +1,50 @@
+<section class="rounded-2xl bg-white/70 p-5 shadow-sm" aria-labelledby="donut-title">
+  <div class="mb-4 flex items-center justify-between">
+    <h2 id="donut-title" class="font-semibold text-slate-800">Sales Reports</h2>
+    <button type="button" aria-label="More options" class="text-slate-400 hover:text-slate-600">
+      <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+        <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
+      </svg>
+    </button>
+  </div>
+
+  @if (breakdown.isLoading()) {
+    <div data-testid="donut-skeleton" class="mx-auto size-48 animate-pulse rounded-full bg-slate-100/70" aria-busy="true" aria-label="Loading sales breakdown"></div>
+  } @else if (breakdown.error()) {
+    <p role="alert" class="grid h-48 place-items-center text-sm text-red-500">Couldn't load the sales breakdown.</p>
+  } @else if (breakdown.hasValue() && arcs().length) {
+    <div class="relative mx-auto aspect-square w-full max-w-56">
+      <svg viewBox="0 0 100 100" class="size-full -rotate-90" role="img" [attr.aria-label]="'Sales breakdown ' + breakdown.value().percent + '%: ' + summary()">
+        <circle cx="50" cy="50" [attr.r]="radius" fill="none" stroke="#e0e7ff" stroke-width="12" />
+        @for (arc of arcs(); track arc.label) {
+          <circle
+            data-testid="donut-arc"
+            cx="50"
+            cy="50"
+            [attr.r]="radius"
+            fill="none"
+            stroke-width="12"
+            stroke-linecap="round"
+            [attr.stroke]="arc.color"
+            [attr.stroke-dasharray]="arc.dash"
+            [attr.stroke-dashoffset]="arc.offset"
+          />
+        }
+      </svg>
+      <p data-testid="donut-percent" class="absolute inset-0 grid place-items-center text-3xl font-semibold text-slate-800" aria-hidden="true">
+        {{ breakdown.value().percent }}%
+      </p>
+    </div>
+
+    <ul class="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-700">
+      @for (arc of arcs(); track arc.label) {
+        <li class="flex items-center gap-2">
+          <span class="size-3 rounded-sm" [style.background]="arc.color" aria-hidden="true"></span>
+          {{ arc.label }}
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="grid h-48 place-items-center text-sm text-slate-500">No sales breakdown available.</p>
+  }
+</section>
