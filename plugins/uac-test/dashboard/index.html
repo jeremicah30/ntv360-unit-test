@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unit tests</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --surface-2: #f1f3f6;
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --fg: #111827;
+      --muted: #6b7280;
+      --pass: #15803d;
+      --pass-soft: #ecfdf3;
+      --fail: #b91c1c;
+      --fail-soft: #fef2f2;
+      --run: #2563eb;
+      --run-soft: #eff6ff;
+      --skip: #475569;
+      --skip-soft: #f1f5f9;
+      --claude: #b5532f;
+      --claude-hover: #9c4526;
+      --radius: 12px;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --sans: "Fira Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "Fira Code", ui-monospace, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--run); outline-offset: 2px; border-radius: 6px; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px 48px; }
+
+    /* Top bar */
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .brand svg { color: var(--pass); }
+    .live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--skip); }
+    .live.on .dot { background: var(--pass); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); animation: pulse 2s infinite; }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+
+    /* Summary */
+    .summary { padding: 28px 0 32px; border-bottom: 1px solid var(--border); }
+    .summary-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+    .eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+    .headline { font-size: clamp(28px, 4vw, 40px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
+    .headline .of { color: var(--muted); font-weight: 500; }
+    .kpis { display: flex; flex-wrap: wrap; gap: 24px; margin: 0; }
+    .kpi dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .kpi dd { margin: 2px 0 0; font: 600 22px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+    .kpi.pass dd { color: var(--pass); } .kpi.fail dd { color: var(--fail); }
+    .bar { margin-top: 24px; height: 6px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+    .bar span { height: 100%; transition: width 200ms var(--ease); }
+
+    /* Status chip */
+    .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; text-transform: capitalize; white-space: nowrap; }
+    .chip svg { width: 13px; height: 13px; }
+    .c-passed, .c-fixed { color: var(--pass); background: var(--pass-soft); }
+    .c-failed { color: var(--fail); background: var(--fail-soft); }
+    .c-running { color: var(--run); background: var(--run-soft); }
+    .c-skipped, .c-idle, .c-interrupted { color: var(--skip); background: var(--skip-soft); }
+
+    /* Layout */
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 32px; padding-top: 32px; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+    section + section { margin-top: 40px; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+    .count { font: 500 13px var(--mono); color: var(--muted); }
+    .empty { color: var(--muted); font-size: 14px; margin: 0; padding: 20px; border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+
+    /* Failure card */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04); }
+    .card + .card { margin-top: 12px; }
+    .failure { border-left: 3px solid var(--fail); }
+    .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .card-title { font-weight: 600; margin: 0; display: flex; gap: 10px; align-items: flex-start; }
+    .card-title svg { flex: none; margin-top: 3px; color: var(--fail); }
+    .tag { font: 500 12px var(--mono); color: var(--fg); background: var(--surface-2); border: 1px solid var(--border); padding: 1px 7px; border-radius: 6px; margin-right: 8px; }
+    .loc { font: 12px var(--mono); color: var(--muted); margin: 6px 0 0 26px; word-break: break-all; }
+    .why { margin: 14px 0 0 26px; padding: 12px 14px; background: var(--fail-soft); border-radius: 8px; font-size: 14px; }
+    .why strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fail); margin-bottom: 4px; }
+    details { margin: 12px 0 0 26px; }
+    summary { cursor: pointer; font-size: 13px; color: var(--muted); list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+    summary::-webkit-details-marker { display: none; }
+    summary svg { transition: transform 150ms var(--ease); }
+    details[open] summary svg { transform: rotate(90deg); }
+    summary:hover { color: var(--fg); }
+    pre { margin: 8px 0 0; padding: 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; color: #1f2937; }
+    .btn-fix {
+      flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px;
+      border: 0; border-radius: 10px; background: var(--claude); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 150ms var(--ease), transform 150ms var(--ease);
+    }
+    .btn-fix:hover { background: var(--claude-hover); }
+    .btn-fix:active { transform: scale(0.98); }
+    .btn-fix:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* Fix panel */
+    .fix { border-left: 3px solid var(--claude); }
+    .fix .card-title svg { color: var(--claude); }
+    .fix-log { max-height: 280px; overflow-y: auto; margin-left: 26px; }
+    .fix-summary { margin: 12px 0 0 26px; font-size: 14px; }
+
+    /* Criteria list */
+    .ticket + .ticket { margin-top: 24px; }
+    .ticket-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .ticket-name { font: 600 15px var(--mono); }
+    .rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .row { display: grid; grid-template-columns: 22px 64px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 16px; border-top: 1px solid var(--border); }
+    .row:first-child { border-top: 0; }
+    .row.is-failed { background: var(--fail-soft); }
+    .row svg { margin-top: 3px; }
+    .ac { font: 500 13px var(--mono); color: var(--muted); padding-top: 1px; }
+    .tests { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+    .tests .file { display: block; font: 12px var(--mono); color: var(--muted); }
+    .i-passed { color: var(--pass); } .i-failed { color: var(--fail); } .i-running { color: var(--run); } .i-skipped { color: var(--skip); }
+
+    /* Other tests */
+    .other-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+    .other-list li { display: flex; gap: 10px; align-items: flex-start; }
+    .other-list svg { flex: none; margin-top: 3px; }
+
+    /* History */
+    .history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .history button {
+      width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; text-align: left; cursor: pointer;
+      min-height: 56px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      transition: border-color 150ms var(--ease), background 150ms var(--ease);
+    }
+    .history button:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .history button[aria-current="true"] { border-color: var(--run); }
+    .history .time { font: 500 13px var(--mono); }
+    .history .meta { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .link { background: none; border: 0; color: var(--run); font-size: 13px; cursor: pointer; padding: 4px 0; }
+    .link:hover { text-decoration: underline; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/><path d="M7 15h10"/></svg>
+        Unit tests
+      </div>
+      <span id="live" class="live" role="status"><span class="dot"></span><span id="live-text">Connecting…</span></span>
+    </header>
+
+    <section class="summary" aria-labelledby="headline">
+      <div class="summary-top">
+        <div>
+          <p class="eyebrow"><span id="status"></span><span id="run-time"></span></p>
+          <h1 id="headline" class="headline">Waiting for a test run</h1>
+        </div>
+        <dl class="kpis" id="kpis"></dl>
+      </div>
+      <div class="bar" id="bar" role="progressbar" aria-label="Test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+    </section>
+
+    <div class="grid">
+      <main>
+        <section id="fix-section" aria-labelledby="fix-title" aria-live="polite" hidden>
+          <div class="section-head"><h2 id="fix-title">Fix with Claude</h2></div>
+          <div id="fix"></div>
+        </section>
+
+        <section aria-labelledby="fail-title">
+          <div class="section-head"><h2 id="fail-title">Failures</h2><span id="fail-count" class="count"></span></div>
+          <div id="failures"></div>
+        </section>
+
+        <section aria-labelledby="ac-title">
+          <div class="section-head"><h2 id="ac-title">Acceptance criteria</h2></div>
+          <div id="ac"></div>
+        </section>
+
+        <section aria-labelledby="other-title">
+          <div class="section-head"><h2 id="other-title">Other tests</h2><span id="other-count" class="count"></span></div>
+          <div id="other"></div>
+        </section>
+      </main>
+
+      <aside aria-labelledby="history-title">
+        <section>
+          <div class="section-head"><h2 id="history-title">Run history</h2><button id="follow" class="link" type="button" hidden>Follow latest</button></div>
+          <ul id="history" class="history"></ul>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const FIX_TOKEN = '__FIX_TOKEN__'; // filled in by server.mjs
+    // Test names like "[NTV-760 AC1.1] shows the logo" are grouped by ticket and AC.
+    const AC_PATTERN = /^\[([A-Za-z]+-\d+)\s+AC([\d.]+)\]\s*(.*)$/;
+
+    let runs = [];
+    let fix = null;        // current or last "Fix with Claude" job
+    let instance = null;   // server instance this page was served by
+    let selectedId = null; // null = follow the latest run
+
+    // ---------- helpers ----------
+    // All data goes through textContent, never innerHTML.
+    function h(tag, attrs = {}, ...children) {
+      const el = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v === null || v === undefined || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k === 'text') el.textContent = v;
+        else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : v);
+      }
+      for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c);
+      return el;
+    }
+
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const ICONS = {
+      passed: ['M20 6 9 17l-5-5'],
+      failed: ['M18 6 6 18', 'M6 6l12 12'],
+      running: ['M12 3a9 9 0 1 0 9 9'],
+      skipped: ['M5 12h14'],
+      chevron: ['M9 6l6 6-6 6'],
+      sparkle: ['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z', 'M19 17l.7 2.3L22 20l-2.3.7L19 23l-.7-2.3L16 20l2.3-.7z'],
+      alert: ['M12 8v5', 'M12 16h.01', 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'],
+    };
+    function icon(name, size = 16) {
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.setAttribute('width', size); svg.setAttribute('height', size); svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round'); svg.setAttribute('aria-hidden', 'true');
+      for (const d of ICONS[name] ?? []) { const p = document.createElementNS(SVG_NS, 'path'); p.setAttribute('d', d); svg.append(p); }
+      return svg;
+    }
+
+    const stateOf = (t) => (t.state === 'pending' ? 'running' : t.state);
+    const time = (ms) => new Date(ms).toLocaleTimeString();
+    const duration = (run) => (run.endedAt ?? Date.now()) - run.startedAt;
+    const seconds = (ms) => `${(ms / 1000).toFixed(1)}s`;
+    const acSort = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+    const statusLabel = { passed: 'Passed', failed: 'Failed', running: 'Running', skipped: 'Skipped', interrupted: 'Interrupted', fixed: 'Fixed', idle: 'Idle' };
+
+    function chip(status) {
+      return h('span', { class: `chip c-${status}` }, icon(status === 'fixed' ? 'passed' : status, 13), statusLabel[status] ?? status);
+    }
+
+    function counts(tests) {
+      const c = { passed: 0, failed: 0, skipped: 0, running: 0, total: tests.length };
+      for (const t of tests) c[stateOf(t)] = (c[stateOf(t)] ?? 0) + 1;
+      return c;
+    }
+
+    function groupStatus(tests) {
+      const states = tests.map(stateOf);
+      if (states.includes('failed')) return 'failed';
+      if (states.includes('running')) return 'running';
+      if (states.length && states.every((s) => s === 'skipped')) return 'skipped';
+      return 'passed';
+    }
+
+    function splitName(t) {
+      const m = AC_PATTERN.exec(t.name);
+      return m ? { key: m[1].toUpperCase(), ac: m[2], label: m[3] } : null;
+    }
+
+    // ---------- "why it failed" ----------
+    const clean = (s) => s.trim().replace(/,$/, '').replace(/^["']|["']$/g, '');
+    const short = (s, n = 80) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+    /** Plain-language reason for a failure, built from the assertion error. */
+    function explain(t) {
+      const e = t.errors?.[0];
+      if (!e) return 'The test failed without an error message.';
+      const named = splitName(t);
+      const reason = reasonFor(e);
+      // "AC1.1 isn't met: expected …" or "Expected …"
+      return named ? `AC${named.ac} isn't met: ${reason}` : reason.charAt(0).toUpperCase() + reason.slice(1);
+    }
+
+    /** Lower-case sentence describing the assertion error. */
+    function reasonFor(e) {
+      // Vitest appends notes like "// Object.is equality" to some messages.
+      const msg = (e.message ?? '').split('\n')[0].replace(/\s*\/\/.*$/, '');
+      let m;
+
+      if (/timed out/i.test(msg)) return 'the test took too long, so it was stopped. Something it waits for never finished.';
+      if (/Cannot read propert(y|ies) of (null|undefined)/i.test(msg)) return "the code used something that doesn't exist (null). Usually an element or value the test expects is missing.";
+      if (/not to be null|to not be null|not to be undefined|to be truthy|to be defined/i.test(msg)) return "something the test looks for wasn't there (it was empty or missing).";
+
+      // Diff lines: "- expected" / "+ received". Pair them up in order.
+      if (e.diff) {
+        const lines = e.diff.split('\n');
+        const removed = lines.filter((l) => /^-\s+\S/.test(l) && !/^-\s*Expected/.test(l)).map((l) => clean(l.slice(1)));
+        const added = lines.filter((l) => /^\+\s+\S/.test(l) && !/^\+\s*Received/.test(l)).map((l) => clean(l.slice(1)));
+        const pairs = [];
+        for (let i = 0; i < Math.max(removed.length, added.length) && pairs.length < 3; i++) {
+          if (removed[i] !== undefined && added[i] !== undefined) pairs.push(`expected “${short(removed[i], 40)}” but got “${short(added[i], 40)}”`);
+          else if (removed[i] !== undefined) pairs.push(`“${short(removed[i], 40)}” is missing`);
+          else pairs.push(`unexpected “${short(added[i], 40)}”`);
+        }
+        if (pairs.length) return pairs.join('; ') + (Math.max(removed.length, added.length) > 3 ? ' (and more).' : '.');
+      }
+
+      if ((m = /expected (.+?) to have length (\d+) but got (\d+)/i.exec(msg))) return `expected ${m[2]} items but found ${m[3]}.`;
+      if ((m = /expected (.+?) to contain (.+)$/i.exec(msg))) return `expected the value to contain ${short(m[2])}, but it didn't.`;
+      if ((m = /expected (.+?) to (?:be|equal|deeply equal|strictly equal) (.+)$/i.exec(msg))) return `expected ${short(m[2])}, but got ${short(m[1])}.`;
+      if (e.expected && e.actual) return `expected ${short(e.expected)}, but got ${short(e.actual)}.`;
+      return short(msg, 160);
+    }
+
+    // ---------- rendering ----------
+    function renderSummary(run) {
+      const status = document.getElementById('status');
+      const headline = document.getElementById('headline');
+      const kpis = document.getElementById('kpis');
+      const bar = document.getElementById('bar');
+      bar.replaceChildren();
+      if (!run) {
+        status.replaceChildren(chip('idle'));
+        headline.replaceChildren('Waiting for a test run');
+        document.getElementById('run-time').textContent = 'Run any ng test command to see results here.';
+        kpis.replaceChildren();
+        return;
+      }
+      const tests = Object.values(run.tests);
+      const c = counts(tests);
+      status.replaceChildren(chip(run.status));
+      document.getElementById('run-time').textContent = `${time(run.startedAt)} · ${seconds(duration(run))}`;
+
+      // Headline: criteria passing if the run has AC-tagged tests, else tests passing.
+      const acs = new Map();
+      for (const t of tests) {
+        const n = splitName(t);
+        if (n) { const k = `${n.key} ${n.ac}`; acs.set(k, [...(acs.get(k) ?? []), t]); }
+      }
+      if (acs.size) {
+        const ok = [...acs.values()].filter((g) => groupStatus(g) === 'passed').length;
+        headline.replaceChildren(`${ok}`, h('span', { class: 'of', text: ` / ${acs.size} criteria passing` }));
+      } else {
+        headline.replaceChildren(`${c.passed}`, h('span', { class: 'of', text: ` / ${c.total} tests passing` }));
+      }
+
+      kpis.replaceChildren(
+        h('div', { class: 'kpi pass' }, h('dt', { text: 'Passed' }), h('dd', { text: String(c.passed) })),
+        h('div', { class: 'kpi fail' }, h('dt', { text: 'Failed' }), h('dd', { text: String(c.failed) })),
+        h('div', { class: 'kpi' }, h('dt', { text: 'Skipped' }), h('dd', { text: String(c.skipped) })),
+        h('div', { class: 'kpi' }, h('dt', { text: 'Total' }), h('dd', { text: String(c.total) })));
+      const pct = (n) => (c.total ? (n / c.total) * 100 : 0);
+      bar.append(
+        h('span', { style: `width:${pct(c.passed)}%;background:var(--pass)` }),
+        h('span', { style: `width:${pct(c.failed)}%;background:var(--fail)` }),
+        h('span', { style: `width:${pct(c.skipped)}%;background:var(--skip)` }));
+      bar.setAttribute('aria-valuenow', String(Math.round(pct(c.passed + c.failed + c.skipped))));
+    }
+
+    function renderFailures(run) {
+      const target = document.getElementById('failures');
+      const failed = run ? Object.values(run.tests).filter((t) => t.state === 'failed') : [];
+      const unhandled = run?.unhandledErrors ?? [];
+      document.getElementById('fail-count').textContent = failed.length + unhandled.length ? String(failed.length + unhandled.length) : '';
+      if (!failed.length && !unhandled.length) {
+        target.replaceChildren(h('p', { class: 'empty', text: run ? 'No failures. Everything passes.' : 'Nothing yet.' }));
+        return;
+      }
+      const fixing = fix?.status === 'running';
+      target.replaceChildren(
+        ...failed.map((t) => {
+          const n = splitName(t);
+          const e = t.errors?.[0];
+          return h('article', { class: 'card failure' },
+            h('div', { class: 'card-head' },
+              h('h3', { class: 'card-title' }, icon('failed'),
+                h('span', {}, n ? h('span', { class: 'tag', text: `AC${n.ac}` }) : null, n ? n.label : t.fullName)),
+              h('button', {
+                type: 'button', class: 'btn-fix', disabled: fixing,
+                title: 'Claude Code fixes the app code (never the test), then re-runs this spec',
+                onclick: () => startFix(run.id, t.id),
+              }, icon('sparkle'), fixing ? 'Fix running…' : 'Fix with Claude')),
+            h('p', { class: 'loc', text: e?.location ?? t.file }),
+            h('p', { class: 'why' }, h('strong', { text: 'Why it failed' }), explain(t)),
+            e ? h('details', {},
+              h('summary', {}, icon('chevron', 14), 'Show error details'),
+              ...(t.errors ?? []).map((err) => h('pre', { text: err.diff ? `${err.message}\n\n${err.diff}` : err.message }))) : null);
+        }),
+        ...unhandled.map((msg) => h('article', { class: 'card failure' },
+          h('h3', { class: 'card-title' }, icon('alert'), 'Unhandled error'),
+          h('p', { class: 'why' }, h('strong', { text: 'Why it failed' }), 'An error was thrown outside any test, so the run could not finish cleanly.'),
+          h('details', {}, h('summary', {}, icon('chevron', 14), 'Show error details'), h('pre', { text: msg })))));
+    }
+
+    function renderFix() {
+      const section = document.getElementById('fix-section');
+      section.hidden = !fix;
+      if (!fix) return;
+      const meta = [seconds((fix.endedAt ?? Date.now()) - fix.startedAt), fix.cost != null ? `$${fix.cost.toFixed(2)}` : null].filter(Boolean).join(' · ');
+      document.getElementById('fix').replaceChildren(
+        h('article', { class: 'card fix' },
+          h('div', { class: 'card-head' },
+            h('h3', { class: 'card-title' }, icon('sparkle'), h('span', { text: fix.testName })),
+            chip(fix.status)),
+          h('p', { class: 'loc', text: `${fix.file} · ${meta}` }),
+          h('pre', { class: 'fix-log', text: fix.log.length ? fix.log.join('\n') : 'Starting Claude Code…' }),
+          fix.summary ? h('p', { class: 'fix-summary', text: fix.summary }) : null));
+      const log = section.querySelector('.fix-log');
+      if (log) log.scrollTop = log.scrollHeight;
+    }
+
+    /** One test under an AC. With several tests per AC, each gets its own status icon. */
+    function testLine(t, label, withIcon) {
+      const s = stateOf(t);
+      return h('li', { style: withIcon ? 'display:flex;gap:8px' : null },
+        withIcon ? h('span', { class: `i-${s}`, role: 'img', 'aria-label': statusLabel[s] }, icon(s, 14)) : null,
+        h('span', {}, h('span', { text: label }), h('span', { class: 'file', text: t.file })));
+    }
+
+    function renderCriteria(run) {
+      const target = document.getElementById('ac');
+      const other = document.getElementById('other');
+      const tests = run ? Object.values(run.tests) : [];
+      const tickets = new Map();
+      const untagged = [];
+      for (const t of tests) {
+        const n = splitName(t);
+        if (!n) { untagged.push(t); continue; }
+        if (!tickets.has(n.key)) tickets.set(n.key, new Map());
+        const acs = tickets.get(n.key);
+        acs.set(n.ac, [...(acs.get(n.ac) ?? []), { test: t, label: n.label }]);
+      }
+
+      if (!tickets.size) {
+        target.replaceChildren(h('p', { class: 'empty', text: 'No tests named like “[KEY-123 AC1.1] …” in this run.' }));
+      } else {
+        target.replaceChildren(...[...tickets.keys()].sort().map((key) => {
+          const acs = tickets.get(key);
+          const ok = [...acs.values()].filter((items) => groupStatus(items.map((i) => i.test)) === 'passed').length;
+          return h('div', { class: 'ticket' },
+            h('div', { class: 'ticket-head' },
+              h('span', { class: 'ticket-name', text: key }),
+              h('span', { class: 'count', text: `${ok}/${acs.size} passing` })),
+            h('ul', { class: 'rows' }, [...acs.keys()].sort(acSort).map((ac) => {
+              const items = acs.get(ac);
+              const status = groupStatus(items.map((i) => i.test));
+              return h('li', { class: `row is-${status}` },
+                h('span', { class: `i-${status}`, title: statusLabel[status], 'aria-label': statusLabel[status], role: 'img' }, icon(status)),
+                h('span', { class: 'ac', text: `AC${ac}` }),
+                h('ul', { class: 'tests' }, items.map((i) => testLine(i.test, i.label, items.length > 1))));
+            })));
+        }));
+      }
+
+      document.getElementById('other-count').textContent = untagged.length ? String(untagged.length) : '';
+      if (!untagged.length) {
+        other.replaceChildren(h('p', { class: 'empty', text: 'None.' }));
+      } else {
+        const failedHere = untagged.some((t) => t.state === 'failed');
+        other.replaceChildren(h('details', { open: failedHere },
+          h('summary', {}, icon('chevron', 14), `Show ${untagged.length} untagged tests`),
+          h('ul', { class: 'other-list' }, untagged.map((t) => {
+            const s = stateOf(t);
+            return h('li', {}, h('span', { class: `i-${s}`, role: 'img', 'aria-label': statusLabel[s] }, icon(s, 14)),
+              h('span', {}, t.fullName, h('span', { class: 'file', style: 'display:block;font:12px var(--mono);color:var(--muted)', text: t.file })));
+          }))));
+      }
+    }
+
+    function renderHistory(current) {
+      const list = document.getElementById('history');
+      if (!runs.length) {
+        list.replaceChildren(h('li', {}, h('p', { class: 'empty', text: 'No runs yet.' })));
+        return;
+      }
+      list.replaceChildren(...[...runs].reverse().map((run) => {
+        const c = counts(Object.values(run.tests));
+        return h('li', {}, h('button', {
+          type: 'button',
+          'aria-current': run === current ? 'true' : 'false',
+          onclick: () => { selectedId = run.id === runs.at(-1).id ? null : run.id; render(); },
+        },
+          h('span', { class: 'time', text: time(run.startedAt) }),
+          chip(run.status),
+          h('span', { class: 'meta', text: `${c.passed} passed · ${c.failed} failed · ${seconds(duration(run))}` })));
+      }));
+    }
+
+    function render() {
+      const current = (selectedId && runs.find((r) => r.id === selectedId)) || runs.at(-1) || null;
+      if (selectedId && current?.id !== selectedId) selectedId = null;
+      document.getElementById('follow').hidden = selectedId === null;
+      renderSummary(current);
+      renderFix();
+      renderFailures(current);
+      renderCriteria(current);
+      renderHistory(current);
+    }
+
+    // ---------- actions ----------
+    async function startFix(runId, testId) {
+      const res = await fetch('/api/fix', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-fix-token': FIX_TOKEN },
+        body: JSON.stringify({ runId, testId }),
+      }).catch(() => null);
+      if (!res || !res.ok) {
+        const body = res ? await res.json().catch(() => ({})) : {};
+        alert(body.error ?? 'Could not start the fix. Is the dashboard server still running?');
+      }
+    }
+
+    document.getElementById('follow').addEventListener('click', () => { selectedId = null; render(); });
+
+    // ---------- live updates ----------
+    const live = document.getElementById('live');
+    const source = new EventSource('/events');
+    source.onopen = () => { live.classList.add('on'); document.getElementById('live-text').textContent = 'Live'; };
+    source.onerror = () => { live.classList.remove('on'); document.getElementById('live-text').textContent = 'Reconnecting…'; };
+    source.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      // A page served before a server restart holds an old token: reload to get the new one.
+      instance ??= data.instance;
+      if (data.instance !== instance) { location.reload(); return; }
+      runs = data.runs ?? [];
+      fix = data.fix ?? null;
+      render();
+    };
+    // Keep running timers ticking between events.
+    setInterval(() => {
+      const current = (selectedId && runs.find((r) => r.id === selectedId)) || runs.at(-1);
+      if (current?.status === 'running') renderSummary(current);
+      if (fix?.status === 'running') renderFix();
+    }, 1000);
+    render();
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 - **Runner**: <Vitest | Jest | Karma+Jasmine> via <builder or script>.
 - **Targeted run** (use this, not the full suite): `<command with --include / path glob>`
-- **Test UI** (optional): `npm run test:ui` → `<e.g. ng test --ui --watch>` (Vitest needs `@vitest/ui` at the same version). `/uac-test:run` opens it in a browser tab during the run.
+- **Test dashboard**: ships with the uac-test plugin; `/uac-test:run` opens it at `http://127.0.0.1:5178/`. Runs stream in through `tools/test-dashboard/reporter.mjs`, registered in <`angular.json` test options | `vitest.config.*`> `reporters`. Don't pass `--reporters` on the command line.
 - **Colocation**: `x.component.spec.ts` / `x.service.spec.ts` next to the source.
 - **Component style**: <standalone or NgModule; zoneless or zone.js; signal inputs via `fixture.componentRef.setInput`>.
 - **Selectors**: <e.g. `[data-testid="..."]`>.

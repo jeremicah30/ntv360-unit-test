@@ -1,10 +1,21 @@
 ---
 description: Generate and run unit tests from a Jira ticket's acceptance criteria (UAC)
 argument-hint: <JIRA-KEY e.g. NTV-123>
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Bash(npm run test:ui:*), Read, Write, Edit, Glob, Grep
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Read, Write, Edit, Glob, Grep
 ---
 
 Run the UAC unit-test workflow for Jira ticket **$ARGUMENTS**. If no ticket key was given, ask for one and stop.
+
+## Open the test dashboard first
+Do this before step 0, as your first action. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
+
+1. **Server.** If `http://127.0.0.1:5178/` already answers (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5178/` returns 200), reuse it. Otherwise start `node "<plugin>/dashboard/server.mjs"` in the background **from the project root**. It opens the browser tab itself and prints `Test dashboard running at http://127.0.0.1:5178/`. Give the user that link.
+2. **Reporter (first run in a project).** Test runs reach the dashboard through `tools/test-dashboard/reporter.mjs` registered as a test reporter. Check whether the project has it:
+   - Angular (`@angular/build:unit-test`): `angular.json` → test target `options.reporters` contains `./tools/test-dashboard/reporter.mjs`.
+   - Plain Vitest: the `reporters` array in `vitest.config.*`.
+   If it is missing, ask the user once: "Add the test dashboard reporter to this project? (copies one file to tools/test-dashboard/reporter.mjs and adds it to the test reporters)". On yes, copy `<plugin>/dashboard/reporter.mjs` there and set reporters to `["default", "./tools/test-dashboard/reporter.mjs"]`, keeping any reporters already listed. This is the only build-config change this command may make, and only with that approval. On no, continue without live results.
+3. Never pass `--reporters` on the command line: it replaces the dashboard reporter for that run.
+4. The server never exits. Never read test results from the dashboard; use the targeted run command.
 
 ## 0. Learn this repo's testing setup
 Read the "Unit testing" section of this repo's `CLAUDE.md` or `.claude/CLAUDE.md`. It defines the runner, the targeted run command, where specs live, and the mocking and selector conventions. Follow it.
@@ -27,13 +38,7 @@ Ask the user to approve the table. Do not write any spec before they approve.
 - Edit spec files only. If a spec needs a source change (for example a missing test id), ask first.
 
 ## 4. Run only those specs
-First open the test UI so the user can watch the run:
-- If `package.json` has a `test:ui` script and it is not already running, start `npm run test:ui` in the background.
-- Wait for the `UI started at http://...?token=...` line and give the user that full URL. The token changes every start; never give the bare URL.
-- If there is no `test:ui` script, say so in one line and continue.
-- The UI is watch mode and never exits. Do not read results from it.
-
-Then use the targeted run command from the repo's testing section. Never run the full suite as a gate.
+The dashboard opened at the start shows results live, grouped by AC, with a "Why it failed" note and a "Fix with Claude" button per failure. Use the targeted run command from the repo's testing section. Never run the full suite as a gate.
 - A test that fails because of a mistake in the test: fix it and rerun.
 - A test that fails because the code does not meet the criterion: do not change the assertion. Report it.
 - If the command itself fails (runner not set up, compile error in unrelated specs), show the error and stop. Do not install packages or edit build config yourself.
