@@ -1,0 +1,13 @@
+{
+    "name": "ntv360-tools",
+    "owner": {
+        "name": "NTV360 Frontend"
+    },
+    "plugins": [
+        {
+            "name": "uac-test",
+            "source": "./plugins/uac-test",
+            "description": "Write and run frontend unit tests from a Jira ticket's acceptance criteria, then post one summary comment to the ticket."
+        }
+    ]
+}
