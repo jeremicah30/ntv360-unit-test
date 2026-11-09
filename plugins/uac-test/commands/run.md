@@ -4,10 +4,15 @@ argument-hint: <JIRA-KEY e.g. NTV-123>
 allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Read, Write, Edit, Glob, Grep
 ---
 
-Run the UAC unit-test workflow for Jira ticket **$ARGUMENTS**. If no ticket key was given, ask for one and stop.
+Run the UAC unit-test workflow for the Jira ticket given as: `$ARGUMENTS`
+
+## Ticket key (required, check before anything else)
+The input must be exactly one Jira issue key: letters, a hyphen, digits (for example `NTV-123`; case-insensitive). Upper-case it; it is called **KEY** below.
+- If the input is empty, is a sentence, or contains anything other than one key: do nothing else. Ask the user for the ticket key in one line (e.g. "Which Jira ticket? Run `/uac-test:run NTV-123`.") and stop. Do not open the dashboard, read files, or guess a key from earlier conversation.
+- If the input contains a request besides the key, ignore the request for this run and mention it in one line.
 
 ## Open the test dashboard first
-Do this before step 0, as your first action. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
+Once you have a valid KEY, do this before step 0. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
 
 1. **Server.** If `http://127.0.0.1:5178/` already answers (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5178/` returns 200), reuse it. Otherwise start `node "<plugin>/dashboard/server.mjs"` in the background **from the project root**. It opens the browser tab itself and prints `Test dashboard running at http://127.0.0.1:5178/`. Give the user that link.
 2. **Reporter (first run in a project).** Test runs reach the dashboard through `tools/test-dashboard/reporter.mjs` registered as a test reporter. Check whether the project has it:
@@ -34,7 +39,7 @@ Ask the user to approve the table. Do not write any spec before they approve.
 ## 3. Write the specs
 - Find the files this work touches: `git diff --name-only <base>...HEAD` and `git status --short`. Check the base branch with `git branch -r`.
 - Put or extend spec files next to each source file, following the repo's conventions.
-- Name every test `[$ARGUMENTS AC<n>] <behavior in plain words>`.
+- Name every test `[KEY AC<n>] <behavior in plain words>`, e.g. `[NTV-123 AC1.2] shows the heading`.
 - Edit spec files only. If a spec needs a source change (for example a missing test id), ask first.
 
 ## 4. Run only those specs
