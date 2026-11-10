@@ -29,7 +29,7 @@ Ask the user to approve the table, and in the same message say: "Unit tests will
 ## 2a. Open the test dashboard (right after the step 2 approval)
 Do this as soon as the user approves the table, before writing specs. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
 
-1. **Server.** Start `node "<plugin>/dashboard/server.mjs"` in the background **from the project root**, every run. If a dashboard server is already running, this asks it to open the page and exits. Either way a browser tab opens only when no dashboard tab is open yet; an open tab is reused. Give the user the link `http://127.0.0.1:5178/`.
+1. **Server.** Start `node "<plugin>/dashboard/server.mjs" --ticket=KEY` in the background **from the project root**, every run. If a dashboard server is already running, this asks it to open the page and exits. Either way a browser tab opens only when no dashboard tab is open yet. If one is open, it shows a desktop notification ("KEY unit tests are starting"); clicking it switches to that tab. Give the user the link `http://127.0.0.1:5178/`. The first time, tell them to click "Turn on notifications" in the dashboard to get that notification.
 2. **Reporter (first run in a project).** Test runs reach the dashboard through `tools/test-dashboard/reporter.mjs` registered as a test reporter. Check whether the project has it:
    - Angular (`@angular/build:unit-test`): `angular.json` → test target `options.reporters` contains `./tools/test-dashboard/reporter.mjs`.
    - Plain Vitest: the `reporters` array in `vitest.config.*`.

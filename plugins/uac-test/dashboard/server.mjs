@@ -2,6 +2,7 @@
 //   node <plugin>/dashboard/server.mjs            start the dashboard and open it in the browser
 //                                                 (if it is already running, ask it to open the page; a tab
 //                                                 opens only when no dashboard tab is connected)
+//   --ticket=NTV-123                              ticket key shown in the "tests are starting" notification
 //   node <plugin>/dashboard/server.mjs --watch    also run `ng test --watch` (Angular) so edits re-run tests
 //   --no-open                                     don't open the browser
 // The project's copy of reporter.mjs posts run events here; the page receives them over SSE.
@@ -23,6 +24,9 @@ const BROADCAST_DELAY_MS = 100;
 const RECONNECT_GRACE_MS = 4000;
 
 const args = new Set(process.argv.slice(2));
+const TICKET_RE = /^[A-Z][A-Z0-9]*-\d+$/i;
+const ticketArg = process.argv.find((a) => a.startsWith('--ticket='))?.slice('--ticket='.length);
+const TICKET = TICKET_RE.test(ticketArg ?? '') ? ticketArg.toUpperCase() : null;
 const page = new URL('./index.html', import.meta.url);
 
 /** Newest run last. */
@@ -151,8 +155,13 @@ const server = createServer(async (req, res) => {
       res.writeHead(403).end();
       return;
     }
-    openIfNoTab();
-    res.writeHead(204).end();
+    try {
+      const { ticket } = JSON.parse((await readBody(req)) || '{}');
+      openIfNoTab(TICKET_RE.test(ticket ?? '') ? ticket.toUpperCase() : null);
+      res.writeHead(204).end();
+    } catch {
+      res.writeHead(400).end();
+    }
     return;
   }
 
@@ -186,9 +195,15 @@ function openBrowser() {
   spawn(cmd, cmdArgs, { stdio: 'ignore', detached: true }).on('error', () => {}).unref();
 }
 
-// A dashboard tab counts as open while its event stream is connected.
-function openIfNoTab() {
-  if (clients.size === 0) openBrowser();
+// A dashboard tab counts as open while its event stream is connected. Browsers won't let us
+// switch to an open tab, so ask it to show a notification; clicking that focuses the tab.
+function openIfNoTab(ticket) {
+  if (clients.size === 0) {
+    openBrowser();
+    return;
+  }
+  const message = `event: focus-request\ndata: ${JSON.stringify({ ticket })}\n\n`;
+  for (const res of clients) res.write(message);
 }
 
 function startWatchRun() {
@@ -207,7 +222,11 @@ server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.log(`Test dashboard already running at ${URL_}`);
     if (!args.has('--no-open')) {
-      fetch(`${URL_}api/open`, { method: 'POST', headers: { 'x-test-dashboard': '1' } }).catch(() => {});
+      fetch(`${URL_}api/open`, {
+        method: 'POST',
+        headers: { 'x-test-dashboard': '1', 'content-type': 'application/json' },
+        body: JSON.stringify({ ticket: TICKET }),
+      }).catch(() => {});
     }
     startWatchRun();
     return;
@@ -217,6 +236,6 @@ server.on('error', (err) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Test dashboard running at ${URL_}`);
-  if (!args.has('--no-open')) setTimeout(openIfNoTab, RECONNECT_GRACE_MS);
+  if (!args.has('--no-open')) setTimeout(() => openIfNoTab(TICKET), RECONNECT_GRACE_MS);
   startWatchRun();
 });
