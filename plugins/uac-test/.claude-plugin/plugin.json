@@ -1,5 +1,5 @@
 {
     "name": "uac-test",
     "description": "Write and run frontend unit tests from a Jira ticket's acceptance criteria (UAC), then post one summary comment to the ticket.",
-    "version": "1.5.1"
+    "version": "1.5.2"
 }

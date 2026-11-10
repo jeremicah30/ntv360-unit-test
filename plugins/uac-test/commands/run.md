@@ -34,7 +34,7 @@ Do this as soon as the user approves the table, before writing specs. The dashbo
    - Angular (`@angular/build:unit-test`): `angular.json` → test target `options.reporters` contains `./tools/test-dashboard/reporter.mjs`.
    - Plain Vitest: the `reporters` array in `vitest.config.*`.
    If it is missing, ask the user once: "Add the test dashboard reporter to this project? (copies one file to tools/test-dashboard/reporter.mjs and adds it to the test reporters)". On yes, copy `<plugin>/dashboard/reporter.mjs` there and set reporters to `["default", "./tools/test-dashboard/reporter.mjs"]`, keeping any reporters already listed. This is the only build-config change this command may make, and only with that approval. On no, continue without live results.
-3. Never pass `--reporters` on the command line: it replaces the dashboard reporter for that run.
+3. Never pass `--reporters` on the command line: it replaces the dashboard reporter for that run. The only exception is the step 5 screenshot run, which must stay out of the dashboard.
 4. The server never exits. Never read test results from the dashboard; use the targeted run command.
 
 ## 3. Write the specs
@@ -53,7 +53,7 @@ The dashboard opened in step 2a shows results live, grouped by AC, with a "Why i
 Only when the specs run in a real browser: Vitest browser mode (`@angular/build:unit-test` with `browsers` set, or `test.browser.enabled` in `vitest.config.*`). With jsdom, Jest or Karma, skip this step and say "No screenshots: tests do not run in a real browser" in the chat report and the comment.
 - Pick at most 5 rendered states that best show the criteria: failing visible criteria first, then one per changed component or key state. Never more than 5.
 - Write ONE temporary spec next to the main spec: `<name>.uac-screenshots.spec.ts`. Copy the main spec's TestBed setup and mocks. For each state, render it, then `await page.elementLocator(el).screenshot({ path: '__uac-screenshots__/<n>-<slug>.png' })` with `import { page } from 'vitest/browser'`. Assert only that the element exists.
-- Run it with the targeted run command. Move the PNGs to `<os temp dir>/uac-test/KEY/` (`node -p "require('os').tmpdir()"`). Delete the temporary spec and the `__uac-screenshots__` folder, then confirm `git status --short` lists neither.
+- Run it with the targeted run command plus `--reporters=default`, so this picture-only run does not show up in the dashboard as a passing run. Move the PNGs to `<os temp dir>/uac-test/KEY/` (`node -p "require('os').tmpdir()"`). Delete the temporary spec and the `__uac-screenshots__` folder, then confirm `git status --short` lists neither.
 - Read each PNG. Drop blank or wrong ones. If the element clips content (fixed height, scroll), say so in the caption.
 - Screenshots use mock data. Never change source code to get a better picture.
 

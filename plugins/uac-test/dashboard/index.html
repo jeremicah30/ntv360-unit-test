@@ -407,8 +407,10 @@
 
     function renderFix() {
       const section = document.getElementById('fix-section');
-      section.hidden = !fix;
-      if (!fix) return;
+      // A finished fix is out of date once any later run has started.
+      const stale = fix && fix.status !== 'running' && runs.some((r) => r.startedAt > fix.endedAt);
+      section.hidden = !fix || stale;
+      if (section.hidden) return;
       const meta = [seconds((fix.endedAt ?? Date.now()) - fix.startedAt), fix.cost != null ? `$${fix.cost.toFixed(2)}` : null].filter(Boolean).join(' · ');
       document.getElementById('fix').replaceChildren(
         h('article', { class: 'card fix' },
