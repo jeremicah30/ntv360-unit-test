@@ -8,7 +8,8 @@ Run the UAC unit-test workflow for the Jira ticket given as: `$ARGUMENTS`
 
 ## Ticket key (required, check before anything else)
 The input must be exactly one Jira issue key: letters, a hyphen, digits (for example `NTV-123`; case-insensitive). Upper-case it; it is called **KEY** below.
-- If the input is empty, is a sentence, or contains anything other than one key: do nothing else. Ask the user for the ticket key in one line (e.g. "Which Jira ticket? Run `/uac-test:run NTV-123`.") and stop. Do not open the dashboard, read files, or guess a key from earlier conversation.
+- If the input is empty, is a sentence, or contains anything other than one key: do nothing else. Ask for the ticket key in one line ("Which Jira ticket? Reply with the key, e.g. `NTV-123`.") and end your turn. Do not open the dashboard, read files, or guess a key from earlier conversation.
+- If the user's next message is exactly one key, use it as KEY and continue this workflow from "Open the test dashboard first". If it is anything else, the run is over: handle that message normally.
 - If the input contains a request besides the key, ignore the request for this run and mention it in one line.
 
 ## Open the test dashboard first
