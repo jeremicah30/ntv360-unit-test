@@ -12,5 +12,5 @@
 - **Limits**: <e.g. jsdom has no real layout. Mark such criteria "not unit-testable">.
 - **Baseline**: <known-failing specs or "full suite not verified green">. Run only the specs you wrote or changed.
 - **Never weaken an assertion** to make a test pass. Report it.
-- **Jira**: site `<https://your-site.atlassian.net>`, keys like `<KEY>-123`. `/uac-test:run` posts ONE summary comment per run after approval.
+- **Jira**: site `<https://your-site.atlassian.net>`, keys like `<KEY>-123`. `/uac-test:run` posts ONE summary comment per run after approval, with up to 5 UI screenshots when specs run in a real browser.
 - **Git**: never commit or push unless asked.

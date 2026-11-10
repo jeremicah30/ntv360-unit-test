@@ -1,7 +1,7 @@
 ---
 description: Generate and run unit tests from a Jira ticket's acceptance criteria (UAC)
 argument-hint: <JIRA-KEY e.g. NTV-123>
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Read, Write, Edit, Glob, Grep
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git branch:*), Bash(npx ng test:*), Bash(npx vitest:*), Bash(npx jest:*), Bash(npm test:*), Bash(curl --location 'https://api.media.atlassian.com/file/binary:*), Read, Write, Edit, Glob, Grep
 ---
 
 Run the UAC unit-test workflow for the Jira ticket given as: `$ARGUMENTS`
@@ -48,18 +48,32 @@ The dashboard opened at the start shows results live, grouped by AC, with a "Why
 - A test that fails because the code does not meet the criterion: do not change the assertion. Report it.
 - If the command itself fails (runner not set up, compile error in unrelated specs), show the error and stop. Do not install packages or edit build config yourself.
 
-## 5. Report in chat
-Totals, then a table `AC# | result (pass / fail / not unit-testable) | test names`, then one line per failing or untested criterion.
+## 5. Capture UI screenshots (max 5)
+Only when the specs run in a real browser: Vitest browser mode (`@angular/build:unit-test` with `browsers` set, or `test.browser.enabled` in `vitest.config.*`). With jsdom, Jest or Karma, skip this step and say "No screenshots: tests do not run in a real browser" in the chat report and the comment.
+- Pick at most 5 rendered states that best show the criteria: failing visible criteria first, then one per changed component or key state. Never more than 5.
+- Write ONE temporary spec next to the main spec: `<name>.uac-screenshots.spec.ts`. Copy the main spec's TestBed setup and mocks. For each state, render it, then `await page.elementLocator(el).screenshot({ path: '__uac-screenshots__/<n>-<slug>.png' })` with `import { page } from 'vitest/browser'`. Assert only that the element exists.
+- Run it with the targeted run command. Move the PNGs to `<os temp dir>/uac-test/KEY/` (`node -p "require('os').tmpdir()"`). Delete the temporary spec and the `__uac-screenshots__` folder, then confirm `git status --short` lists neither.
+- Read each PNG. Drop blank or wrong ones. If the element clips content (fixed height, scroll), say so in the caption.
+- Screenshots use mock data. Never change source code to get a better picture.
 
-## 6. Jira comment (ONE per run, only after approval)
+## 6. Report in chat
+Totals, then a table `AC# | result (pass / fail / not unit-testable) | test names`, then one line per failing or untested criterion, then the screenshot paths with one caption each.
+
+## 7. Jira comment (ONE per run, only after approval)
 Draft a single comment:
 - Heading `Unit test results (/uac-test:run)`
 - Branch name and `git rev-parse --short HEAD`
 - Totals and the compact `AC | result | tests` table
 - One line per failing or untested criterion
-- No logs, no screenshots, no per-test comments
+- `Screenshots` heading with one numbered caption per image (`1. AC<n>: <what it shows> (mock data)`), or the "No screenshots" line from step 5
+- No logs, no per-test comments
 
-Show the exact text and WAIT for approval. On approval, list the ticket's comments first: if you already posted a `Unit test results (/uac-test:run)` comment, edit it, otherwise add one.
+Show the exact text and the screenshot list, then WAIT for approval. On approval:
+1. List the ticket's comments with `responseContentFormat: "html"` and find an existing `Unit test results (/uac-test:run)` comment.
+2. For each screenshot, in caption order: call `executeWrite` with `name: "uploadAttachmentToJiraIssue"` and inputs `issueIdOrKey`, `filePath` (no `fileId`). Run the returned `uploadCommand` in the shell and keep `data.id`, plus `collection` and `fileName` from the first response. Do not call the operation a second time with `fileId`: that adds a duplicate attachment.
+3. Call `addOrEditJiraIssueComment` with `contentFormat: "html"`, the whole comment as HTML, and `inlineFileId`, `inlineFileCollection`, `inlineFileName` in caption order. The images append at the end, under the captions. Pass `commentId` to edit the existing comment, otherwise omit it to add one. An edit replaces the whole body, old images included. That is intended: each run shows its own screenshots.
+4. Check that `inlineMediaCount` in the response equals the number of screenshots. If not, say so.
+
 Never edit or transition the ticket itself.
 
 ## Rules
