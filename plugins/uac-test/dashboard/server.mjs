@@ -1,5 +1,7 @@
 // Local test dashboard server, shipped with the uac-test plugin. Run it from the project root:
 //   node <plugin>/dashboard/server.mjs            start the dashboard and open it in the browser
+//                                                 (if it is already running, ask it to open the page; a tab
+//                                                 opens only when no dashboard tab is connected)
 //   node <plugin>/dashboard/server.mjs --watch    also run `ng test --watch` (Angular) so edits re-run tests
 //   --no-open                                     don't open the browser
 // The project's copy of reporter.mjs posts run events here; the page receives them over SSE.
@@ -16,6 +18,9 @@ const ALLOWED_HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`]);
 const MAX_RUNS = 10;
 const MAX_BODY_BYTES = 1_000_000;
 const BROADCAST_DELAY_MS = 100;
+// Open tabs reconnect to a restarted server within ~3s (EventSource retry), so wait before
+// deciding that no tab is open.
+const RECONNECT_GRACE_MS = 4000;
 
 const args = new Set(process.argv.slice(2));
 const page = new URL('./index.html', import.meta.url);
@@ -140,6 +145,17 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Sent by a second `server.mjs` start while this one is running.
+  if (req.method === 'POST' && req.url === '/api/open') {
+    if (req.headers['x-test-dashboard'] !== '1') {
+      res.writeHead(403).end();
+      return;
+    }
+    openIfNoTab();
+    res.writeHead(204).end();
+    return;
+  }
+
   // The custom header can't be sent cross-origin without a CORS preflight, which this
   // server never approves, so web pages can't post fake results here.
   if (req.method === 'POST' && req.url === '/api/event') {
@@ -161,7 +177,6 @@ const server = createServer(async (req, res) => {
 });
 
 function openBrowser() {
-  if (args.has('--no-open')) return;
   const [cmd, cmdArgs] =
     process.platform === 'win32'
       ? ['cmd', ['/c', 'start', '', URL_]]
@@ -169,6 +184,11 @@ function openBrowser() {
         ? ['open', [URL_]]
         : ['xdg-open', [URL_]];
   spawn(cmd, cmdArgs, { stdio: 'ignore', detached: true }).on('error', () => {}).unref();
+}
+
+// A dashboard tab counts as open while its event stream is connected.
+function openIfNoTab() {
+  if (clients.size === 0) openBrowser();
 }
 
 function startWatchRun() {
@@ -186,7 +206,9 @@ function startWatchRun() {
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.log(`Test dashboard already running at ${URL_}`);
-    openBrowser();
+    if (!args.has('--no-open')) {
+      fetch(`${URL_}api/open`, { method: 'POST', headers: { 'x-test-dashboard': '1' } }).catch(() => {});
+    }
     startWatchRun();
     return;
   }
@@ -195,6 +217,6 @@ server.on('error', (err) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Test dashboard running at ${URL_}`);
-  openBrowser();
+  if (!args.has('--no-open')) setTimeout(openIfNoTab, RECONNECT_GRACE_MS);
   startWatchRun();
 });

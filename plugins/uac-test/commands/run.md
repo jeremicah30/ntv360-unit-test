@@ -9,19 +9,8 @@ Run the UAC unit-test workflow for the Jira ticket given as: `$ARGUMENTS`
 ## Ticket key (required, check before anything else)
 The input must be exactly one Jira issue key: letters, a hyphen, digits (for example `NTV-123`; case-insensitive). Upper-case it; it is called **KEY** below.
 - If the input is empty, is a sentence, or contains anything other than one key: do nothing else. Ask for the ticket key in one line ("Which Jira ticket? Reply with the key, e.g. `NTV-123`.") and end your turn. Do not open the dashboard, read files, or guess a key from earlier conversation.
-- If the user's next message is exactly one key, use it as KEY and continue this workflow from "Open the test dashboard first". If it is anything else, the run is over: handle that message normally.
+- If the user's next message is exactly one key, use it as KEY and continue this workflow from step 0. If it is anything else, the run is over: handle that message normally.
 - If the input contains a request besides the key, ignore the request for this run and mention it in one line.
-
-## Open the test dashboard first
-Once you have a valid KEY, do this before step 0. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
-
-1. **Server.** If `http://127.0.0.1:5178/` already answers (`curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5178/` returns 200), reuse it. Otherwise start `node "<plugin>/dashboard/server.mjs"` in the background **from the project root**. It opens the browser tab itself and prints `Test dashboard running at http://127.0.0.1:5178/`. Give the user that link.
-2. **Reporter (first run in a project).** Test runs reach the dashboard through `tools/test-dashboard/reporter.mjs` registered as a test reporter. Check whether the project has it:
-   - Angular (`@angular/build:unit-test`): `angular.json` → test target `options.reporters` contains `./tools/test-dashboard/reporter.mjs`.
-   - Plain Vitest: the `reporters` array in `vitest.config.*`.
-   If it is missing, ask the user once: "Add the test dashboard reporter to this project? (copies one file to tools/test-dashboard/reporter.mjs and adds it to the test reporters)". On yes, copy `<plugin>/dashboard/reporter.mjs` there and set reporters to `["default", "./tools/test-dashboard/reporter.mjs"]`, keeping any reporters already listed. This is the only build-config change this command may make, and only with that approval. On no, continue without live results.
-3. Never pass `--reporters` on the command line: it replaces the dashboard reporter for that run.
-4. The server never exits. Never read test results from the dashboard; use the targeted run command.
 
 ## 0. Learn this repo's testing setup
 Read the "Unit testing" section of this repo's `CLAUDE.md` or `.claude/CLAUDE.md`. It defines the runner, the targeted run command, where specs live, and the mocking and selector conventions. Follow it.
@@ -35,7 +24,18 @@ If there are none, say so and stop. Do not invent criteria.
 ## 2. Map criteria to tests and WAIT
 Show a table: `AC# | criterion | planned test(s) | unit-testable?`.
 Mark criteria that cannot be unit tested (pure visual layout, real routing between pages, real backend data) and say why.
-Ask the user to approve the table. Do not write any spec before they approve.
+Ask the user to approve the table, and in the same message say: "Unit tests will be available at http://127.0.0.1:5178/ once you approve." Do not write any spec before they approve.
+
+## 2a. Open the test dashboard (right after the step 2 approval)
+Do this as soon as the user approves the table, before writing specs. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
+
+1. **Server.** Start `node "<plugin>/dashboard/server.mjs"` in the background **from the project root**, every run. If a dashboard server is already running, this asks it to open the page and exits. Either way a browser tab opens only when no dashboard tab is open yet; an open tab is reused. Give the user the link `http://127.0.0.1:5178/`.
+2. **Reporter (first run in a project).** Test runs reach the dashboard through `tools/test-dashboard/reporter.mjs` registered as a test reporter. Check whether the project has it:
+   - Angular (`@angular/build:unit-test`): `angular.json` → test target `options.reporters` contains `./tools/test-dashboard/reporter.mjs`.
+   - Plain Vitest: the `reporters` array in `vitest.config.*`.
+   If it is missing, ask the user once: "Add the test dashboard reporter to this project? (copies one file to tools/test-dashboard/reporter.mjs and adds it to the test reporters)". On yes, copy `<plugin>/dashboard/reporter.mjs` there and set reporters to `["default", "./tools/test-dashboard/reporter.mjs"]`, keeping any reporters already listed. This is the only build-config change this command may make, and only with that approval. On no, continue without live results.
+3. Never pass `--reporters` on the command line: it replaces the dashboard reporter for that run.
+4. The server never exits. Never read test results from the dashboard; use the targeted run command.
 
 ## 3. Write the specs
 - Find the files this work touches: `git diff --name-only <base>...HEAD` and `git status --short`. Check the base branch with `git branch -r`.
@@ -44,7 +44,7 @@ Ask the user to approve the table. Do not write any spec before they approve.
 - Edit spec files only. If a spec needs a source change (for example a missing test id), ask first.
 
 ## 4. Run only those specs
-The dashboard opened at the start shows results live, grouped by AC, with a "Why it failed" note and a "Fix with Claude" button per failure. Use the targeted run command from the repo's testing section. Never run the full suite as a gate.
+The dashboard opened in step 2a shows results live, grouped by AC, with a "Why it failed" note and a "Fix with Claude" button per failure. Use the targeted run command from the repo's testing section. Never run the full suite as a gate.
 - A test that fails because of a mistake in the test: fix it and rerun.
 - A test that fails because the code does not meet the criterion: do not change the assertion. Report it.
 - If the command itself fails (runner not set up, compile error in unrelated specs), show the error and stop. Do not install packages or edit build config yourself.
