@@ -69,7 +69,14 @@ Draft a single comment:
 - `Screenshots` heading with one numbered caption per image (`1. AC<n>: <what it shows> (mock data)`), or the "No screenshots" line from step 5
 - No logs, no per-test comments
 
-Show the exact text and the screenshot list, then WAIT for approval. On approval:
+Show the exact text and the screenshot list, then WAIT for approval.
+
+**While waiting, follow dashboard fixes.** If any test failed and the dashboard is running, start `node "<plugin>/dashboard/wait-for-fix.mjs"` in the background (Bash with `run_in_background: true`) before you end your turn, and tell the user in one line that a "Fix with Claude" from the dashboard will update this draft. Keep at most one watcher running. When it exits:
+- `Dashboard fix finished: ...`: say so in one line, rerun the targeted specs (step 4; never take results from the dashboard), redo steps 5 and 6, show the new draft, and WAIT for approval again. Start a new watcher if anything still fails.
+- Any other output (timeout, dashboard stopped): do nothing.
+Stop the watcher once the comment is posted or the user declines it.
+
+On approval:
 1. List the ticket's comments with `responseContentFormat: "html"` and find an existing `Unit test results (/uac-test:run)` comment.
 2. For each screenshot, in caption order: call `executeWrite` with `name: "uploadAttachmentToJiraIssue"` and inputs `issueIdOrKey`, `filePath` (no `fileId`). Run the returned `uploadCommand` in the shell and keep `data.id`, plus `collection` and `fileName` from the first response. Do not call the operation a second time with `fileId`: that adds a duplicate attachment.
 3. Call `addOrEditJiraIssueComment` with `contentFormat: "html"`, the whole comment as HTML, and `inlineFileId`, `inlineFileCollection`, `inlineFileName` in caption order. The images append at the end, under the captions. Pass `commentId` to edit the existing comment, otherwise omit it to add one. An edit replaces the whole body, old images included. That is intended: each run shows its own screenshots.
