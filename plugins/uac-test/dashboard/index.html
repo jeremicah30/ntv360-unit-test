@@ -55,6 +55,7 @@
     .eyebrow { font-size: 13px; color: var(--muted); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
     .headline { font-size: clamp(28px, 4vw, 40px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
     .headline .of { color: var(--muted); font-weight: 500; }
+    .headline .extra-sum { display: inline-block; margin-left: 16px; font-size: 16px; font-weight: 500; letter-spacing: 0; color: var(--muted); white-space: nowrap; }
     .kpis { display: flex; flex-wrap: wrap; gap: 24px; margin: 0; }
     .kpi dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
     .kpi dd { margin: 2px 0 0; font: 600 22px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
@@ -87,6 +88,7 @@
     .card-title { font-weight: 600; margin: 0; display: flex; gap: 10px; align-items: flex-start; }
     .card-title svg { flex: none; margin-top: 3px; color: var(--fail); }
     .tag { font: 500 12px var(--mono); color: var(--fg); background: var(--surface-2); border: 1px solid var(--border); padding: 1px 7px; border-radius: 6px; margin-right: 8px; }
+    .old-run { font-size: 13px; color: var(--muted); white-space: nowrap; padding-top: 4px; }
     .loc { font: 12px var(--mono); color: var(--muted); margin: 6px 0 0 26px; word-break: break-all; }
     .why { margin: 14px 0 0 26px; padding: 12px 14px; background: var(--fail-soft); border-radius: 8px; font-size: 14px; }
     .why strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fail); margin-bottom: 4px; }
@@ -191,6 +193,11 @@
           <div id="ac"></div>
         </section>
 
+        <section aria-labelledby="extra-title">
+          <div class="section-head"><h2 id="extra-title">Extra tests</h2></div>
+          <div id="extra"></div>
+        </section>
+
         <section aria-labelledby="other-title">
           <div class="section-head"><h2 id="other-title">Other tests</h2><span id="other-count" class="count"></span></div>
           <div id="other"></div>
@@ -209,7 +216,10 @@
   <script>
     const FIX_TOKEN = '__FIX_TOKEN__'; // filled in by server.mjs
     // Test names like "[NTV-760 AC1.1] shows the logo" are grouped by ticket and AC.
-    const AC_PATTERN = /^\[([A-Za-z]+-\d+)\s+AC([\d.]+)\]\s*(.*)$/;
+    // "[NTV-760 E1] shows an error when the API fails" is an extra test for changed code.
+    // "[E1] ..." with no key comes from a run without a ticket.
+    const TAG_PATTERN = /^\[(?:([A-Za-z]+-\d+)\s+)?(AC|E)([\d.]+)\]\s*(.*)$/;
+    const NO_TICKET = 'No ticket';
 
     let runs = [];
     let fix = null;        // current or last "Fix with Claude" job
@@ -276,8 +286,9 @@
     }
 
     function splitName(t) {
-      const m = AC_PATTERN.exec(t.name);
-      return m ? { key: m[1].toUpperCase(), ac: m[2], label: m[3] } : null;
+      const m = TAG_PATTERN.exec(t.name);
+      // kind is "AC" or "E"; tag is "AC1.2" or "E1".
+      return m ? { key: m[1] ? m[1].toUpperCase() : NO_TICKET, kind: m[2], tag: m[2] + m[3], label: m[4] } : null;
     }
 
     // ---------- "why it failed" ----------
@@ -290,8 +301,9 @@
       if (!e) return 'The test failed without an error message.';
       const named = splitName(t);
       const reason = reasonFor(e);
-      // "AC1.1 isn't met: expected …" or "Expected …"
-      return named ? `AC${named.ac} isn't met: ${reason}` : reason.charAt(0).toUpperCase() + reason.slice(1);
+      // "AC1.1 isn't met: expected …", "E1 fails: expected …" or "Expected …"
+      if (named) return `${named.tag} ${named.kind === 'AC' ? "isn't met" : 'fails'}: ${reason}`;
+      return reason.charAt(0).toUpperCase() + reason.slice(1);
     }
 
     /** Lower-case sentence describing the assertion error. */
@@ -345,14 +357,20 @@
       document.getElementById('run-time').textContent = `${time(run.startedAt)} · ${seconds(duration(run))}`;
 
       // Headline: criteria passing if the run has AC-tagged tests, else tests passing.
+      // Extra tests (E1, E2, …) get a smaller count next to it.
       const acs = new Map();
+      const extras = new Map();
       for (const t of tests) {
         const n = splitName(t);
-        if (n) { const k = `${n.key} ${n.ac}`; acs.set(k, [...(acs.get(k) ?? []), t]); }
+        if (!n) continue;
+        const groups = n.kind === 'AC' ? acs : extras;
+        const k = `${n.key} ${n.tag}`;
+        groups.set(k, [...(groups.get(k) ?? []), t]);
       }
+      const passing = (groups) => [...groups.values()].filter((g) => groupStatus(g) === 'passed').length;
       if (acs.size) {
-        const ok = [...acs.values()].filter((g) => groupStatus(g) === 'passed').length;
-        headline.replaceChildren(`${ok}`, h('span', { class: 'of', text: ` / ${acs.size} criteria passing` }));
+        headline.replaceChildren(`${passing(acs)}`, h('span', { class: 'of', text: ` / ${acs.size} criteria passing` }),
+          extras.size ? h('span', { class: 'extra-sum', text: `${passing(extras)}/${extras.size} extra tests passing` }) : null);
       } else {
         headline.replaceChildren(`${c.passed}`, h('span', { class: 'of', text: ` / ${c.total} tests passing` }));
       }
@@ -380,6 +398,8 @@
         return;
       }
       const fixing = fix?.status === 'running';
+      // Only the latest run can be fixed: a later run may already have fixed an older failure.
+      const isLatest = run.id === runs.at(-1)?.id;
       target.replaceChildren(
         ...failed.map((t) => {
           const n = splitName(t);
@@ -387,12 +407,13 @@
           return h('article', { class: 'card failure' },
             h('div', { class: 'card-head' },
               h('h3', { class: 'card-title' }, icon('failed'),
-                h('span', {}, n ? h('span', { class: 'tag', text: `AC${n.ac}` }) : null, n ? n.label : t.fullName)),
-              h('button', {
+                h('span', {}, n ? h('span', { class: 'tag', text: n.tag }) : null, n ? n.label : t.fullName)),
+              isLatest ? h('button', {
                 type: 'button', class: 'btn-fix', disabled: fixing,
                 title: 'Claude Code fixes the app code (never the test), then re-runs this spec',
                 onclick: () => startFix(run.id, t.id),
-              }, icon('sparkle'), fixing ? 'Fix running…' : 'Fix with Claude')),
+              }, icon('sparkle'), fixing ? 'Fix running…' : 'Fix with Claude')
+                : h('span', { class: 'old-run', text: 'Older run. Open the latest run to fix.' })),
             h('p', { class: 'loc', text: e?.location ?? t.file }),
             h('p', { class: 'why' }, h('strong', { text: 'Why it failed' }), explain(t)),
             e ? h('details', {},
@@ -432,40 +453,46 @@
         h('span', {}, h('span', { text: label }), h('span', { class: 'file', text: t.file })));
     }
 
+    /** Tagged tests grouped by ticket, then by tag (AC1.2 or E1), one row per tag. */
+    function renderTagged(target, tickets, emptyText) {
+      if (!tickets.size) {
+        target.replaceChildren(h('p', { class: 'empty', text: emptyText }));
+        return;
+      }
+      target.replaceChildren(...[...tickets.keys()].sort().map((key) => {
+        const tags = tickets.get(key);
+        const ok = [...tags.values()].filter((items) => groupStatus(items.map((i) => i.test)) === 'passed').length;
+        return h('div', { class: 'ticket' },
+          h('div', { class: 'ticket-head' },
+            h('span', { class: 'ticket-name', text: key }),
+            h('span', { class: 'count', text: `${ok}/${tags.size} passing` })),
+          h('ul', { class: 'rows' }, [...tags.keys()].sort(acSort).map((tag) => {
+            const items = tags.get(tag);
+            const status = groupStatus(items.map((i) => i.test));
+            return h('li', { class: `row is-${status}` },
+              h('span', { class: `i-${status}`, title: statusLabel[status], 'aria-label': statusLabel[status], role: 'img' }, icon(status)),
+              h('span', { class: 'ac', text: tag }),
+              h('ul', { class: 'tests' }, items.map((i) => testLine(i.test, i.label, items.length > 1))));
+          })));
+      }));
+    }
+
     function renderCriteria(run) {
-      const target = document.getElementById('ac');
       const other = document.getElementById('other');
       const tests = run ? Object.values(run.tests) : [];
-      const tickets = new Map();
+      const byKind = { AC: new Map(), E: new Map() };
       const untagged = [];
       for (const t of tests) {
         const n = splitName(t);
         if (!n) { untagged.push(t); continue; }
+        const tickets = byKind[n.kind];
         if (!tickets.has(n.key)) tickets.set(n.key, new Map());
-        const acs = tickets.get(n.key);
-        acs.set(n.ac, [...(acs.get(n.ac) ?? []), { test: t, label: n.label }]);
+        const tags = tickets.get(n.key);
+        tags.set(n.tag, [...(tags.get(n.tag) ?? []), { test: t, label: n.label }]);
       }
 
-      if (!tickets.size) {
-        target.replaceChildren(h('p', { class: 'empty', text: 'No tests named like “[KEY-123 AC1.1] …” in this run.' }));
-      } else {
-        target.replaceChildren(...[...tickets.keys()].sort().map((key) => {
-          const acs = tickets.get(key);
-          const ok = [...acs.values()].filter((items) => groupStatus(items.map((i) => i.test)) === 'passed').length;
-          return h('div', { class: 'ticket' },
-            h('div', { class: 'ticket-head' },
-              h('span', { class: 'ticket-name', text: key }),
-              h('span', { class: 'count', text: `${ok}/${acs.size} passing` })),
-            h('ul', { class: 'rows' }, [...acs.keys()].sort(acSort).map((ac) => {
-              const items = acs.get(ac);
-              const status = groupStatus(items.map((i) => i.test));
-              return h('li', { class: `row is-${status}` },
-                h('span', { class: `i-${status}`, title: statusLabel[status], 'aria-label': statusLabel[status], role: 'img' }, icon(status)),
-                h('span', { class: 'ac', text: `AC${ac}` }),
-                h('ul', { class: 'tests' }, items.map((i) => testLine(i.test, i.label, items.length > 1))));
-            })));
-        }));
-      }
+      renderTagged(document.getElementById('ac'), byKind.AC, 'No tests named like “[KEY-123 AC1.1] …” in this run.');
+      renderTagged(document.getElementById('extra'), byKind.E, 'No tests named like “[KEY-123 E1] …” or “[E1] …” in this run.');
 
       document.getElementById('other-count').textContent = untagged.length ? String(untagged.length) : '';
       if (!untagged.length) {

@@ -47,7 +47,7 @@ function buildPrompt(test) {
     'Error:',
     errors || '(no error details)',
     '',
-    'Fix the application source code so this test passes and the acceptance criterion in the test name is met.',
+    'Fix the application source code so this test passes and the acceptance criterion (AC<n>) or expected behavior (E<n>) in the test name is met.',
     'Rules:',
     '- Read the "Unit testing" section of CLAUDE.md first.',
     '- Do not edit any *.spec.* / *.test.* file or anything in a testing/ folder. Never weaken a test.',

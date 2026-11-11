@@ -129,7 +129,10 @@ const server = createServer(async (req, res) => {
     }
     try {
       const { runId, testId } = JSON.parse(await readBody(req));
-      const outcome = fixer.start(findTest(runId, testId));
+      // A later run may already have fixed this failure.
+      const outcome = runId === runs.at(-1)?.id
+        ? fixer.start(findTest(runId, testId))
+        : { ok: false, error: 'This run is out of date. Fix from the latest run.' };
       res.writeHead(outcome.ok ? 202 : 409, { 'content-type': 'application/json' }).end(JSON.stringify(outcome));
     } catch {
       res.writeHead(400).end();
