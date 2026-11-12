@@ -8,7 +8,7 @@ Run the UAC unit-test workflow for the Jira ticket given as: `$ARGUMENTS`
 
 ## Ticket key (check before anything else)
 The input must be exactly one Jira issue key: letters, a hyphen, digits (for example `NTV-123`; case-insensitive), or the word `none`. Upper-case a key; it is called **KEY** below.
-- If the input is empty, is a sentence, or contains anything other than one key or `none`: do nothing else. Ask in one line ("Which Jira ticket? Reply with the key, e.g. `NTV-123`, or `none` if there is no ticket.") and end your turn. Do not open the dashboard, read files, or guess a key from earlier conversation.
+- If the input is empty, is a sentence, or contains anything other than one key or `none`: do nothing else. Ask in one line ("Which Jira ticket? Reply with the key, e.g. `NTV-123`, or `none` if there is no ticket.") and end your turn. Do not read files or guess a key from earlier conversation.
 - If the user's next message is exactly one key, use it as KEY and continue this workflow from step 0. If it is exactly `none`, continue as a no-ticket run. If it is anything else, the run is over: handle that message normally.
 - **`none`: no-ticket run.** There is no KEY. Test the changed code alone: run every step below, but skip everything about the ticket and its criteria (steps 1 and 7, the AC table, AC names). Plan, write and run only the baseline and the extra tests.
 - If the input contains a request besides the key, ignore the request for this run and mention it in one line.
@@ -27,7 +27,7 @@ Before planning any test, find out which existing tests already fail.
 - Find the files this work touches: `git diff --name-only <base>...HEAD` and `git status --short`. Check the base branch with `git branch -r`.
 - The **baseline specs** are the existing spec files for those files: the touched spec files, plus the spec next to each touched source file (`x.ts` → `x.spec.ts`) when it exists.
 - If there are none, note "No existing specs for the touched files" and go to step 2.
-- Run only the baseline specs with the targeted run command plus `--reporters=default`, so this run stays out of the dashboard.
+- Run only the baseline specs with the targeted run command.
 - Note every failing test as **already failing**. Do not fix or change them. These failures come from your branch or are older; this run did not cause them.
 - If the command itself fails (runner not set up, compile error), show the error and stop. Do not install packages or edit build config yourself.
 
@@ -44,18 +44,7 @@ Then show a second table of **extra tests**: behavior in the code this work chan
 - Table: `E# | file | code path | planned test`, numbered E1, E2, … If there are none, say "No extra tests".
 - If there are no criteria and no extra tests, there is nothing to write: skip to step 6 and report the baseline only.
 
-Ask the user to approve both tables or name the rows to drop. In the same message say: "Unit tests will be available at http://127.0.0.1:5178/ once you approve." Do not write any spec before they approve.
-
-## 2a. Open the test dashboard (right after the step 2 approval)
-Do this as soon as the user approves the tables, before writing specs. The dashboard ships with this plugin in its `dashboard/` folder (`${CLAUDE_PLUGIN_ROOT}/dashboard/`). If that variable is empty, find the newest `~/.claude/plugins/cache/*/uac-test/*/dashboard/server.mjs` with Glob.
-
-1. **Server.** Start `node "<plugin>/dashboard/server.mjs" --ticket=KEY` (no `--ticket` in a no-ticket run) in the background **from the project root**, every run. If a dashboard server is already running, this asks it to open the page and exits. Either way a browser tab opens only when no dashboard tab is open yet. If one is open, it shows a desktop notification ("KEY unit tests are starting"); clicking it switches to that tab. Give the user the link `http://127.0.0.1:5178/`. The first time, tell them to click "Turn on notifications" in the dashboard to get that notification.
-2. **Reporter (first run in a project).** Test runs reach the dashboard through `tools/test-dashboard/reporter.mjs` registered as a test reporter. Check whether the project has it:
-   - Angular (`@angular/build:unit-test`): `angular.json` → test target `options.reporters` contains `./tools/test-dashboard/reporter.mjs`.
-   - Plain Vitest: the `reporters` array in `vitest.config.*`.
-   If it is missing, ask the user once: "Add the test dashboard reporter to this project? (copies one file to tools/test-dashboard/reporter.mjs and adds it to the test reporters)". On yes, copy `<plugin>/dashboard/reporter.mjs` there and set reporters to `["default", "./tools/test-dashboard/reporter.mjs"]`, keeping any reporters already listed. This is the only build-config change this command may make, and only with that approval. On no, continue without live results.
-3. Never pass `--reporters` on the command line: it replaces the dashboard reporter for that run. The only exceptions are the step 1a baseline run and the step 5 screenshot run, which must stay out of the dashboard.
-4. The server never exits. Never read test results from the dashboard; use the targeted run command.
+Ask the user to approve both tables or name the rows to drop. Do not write any spec before they approve.
 
 ## 3. Write the specs
 - Put or extend spec files next to each source file found in step 1a, following the repo's conventions.
@@ -64,7 +53,7 @@ Do this as soon as the user approves the tables, before writing specs. The dashb
 - Edit spec files only. If a spec needs a source change (for example a missing test id), ask first.
 
 ## 4. Run the new specs and the baseline specs together
-The dashboard opened in step 2a shows results live, grouped by AC and extra test, with a "Why it failed" note and a "Fix with Claude" button per failure. Use the targeted run command from the repo's testing section, limited to the spec files you wrote or changed plus the step 1a baseline specs, in ONE run. Never run the full suite as a gate.
+Use the targeted run command from the repo's testing section, limited to the spec files you wrote or changed plus the step 1a baseline specs, in ONE run. Never run the full suite as a gate.
 - Compare existing tests with the baseline. One that passed in step 1a and fails now is a **new break**. If your spec edit caused it (for example a changed shared `beforeEach`), fix your edit and rerun. Otherwise report it.
 - An already-failing test from step 1a: leave it alone and report it as already failing.
 - A test that fails because of a mistake in the test: fix it and rerun.
@@ -75,7 +64,7 @@ The dashboard opened in step 2a shows results live, grouped by AC and extra test
 Only when the specs run in a real browser: Vitest browser mode (`@angular/build:unit-test` with `browsers` set, or `test.browser.enabled` in `vitest.config.*`). With jsdom, Jest or Karma, skip this step and say "No screenshots: tests do not run in a real browser" in the chat report and the comment.
 - Pick at most 5 rendered states that best show the criteria: failing visible criteria first, then one per changed component or key state. Never more than 5.
 - Write ONE temporary spec next to the main spec: `<name>.uac-screenshots.spec.ts`. Copy the main spec's TestBed setup and mocks. For each state, render it, then `await page.elementLocator(el).screenshot({ path: '__uac-screenshots__/<n>-<slug>.png' })` with `import { page } from 'vitest/browser'`. Assert only that the element exists.
-- Run it with the targeted run command plus `--reporters=default`, so this picture-only run does not show up in the dashboard as a passing run. Move the PNGs to `<os temp dir>/uac-test/KEY/` (`no-ticket` instead of KEY in a no-ticket run) (`node -p "require('os').tmpdir()"`). Delete the temporary spec and the `__uac-screenshots__` folder, then confirm `git status --short` lists neither.
+- Run it with the targeted run command. Move the PNGs to `<os temp dir>/uac-test/KEY/` (`no-ticket` instead of KEY in a no-ticket run) (`node -p "require('os').tmpdir()"`). Delete the temporary spec and the `__uac-screenshots__` folder, then confirm `git status --short` lists neither.
 - Read each PNG. Drop blank or wrong ones. If the element clips content (fixed height, scroll), say so in the caption.
 - Screenshots use mock data. Never change source code to get a better picture.
 
@@ -97,11 +86,6 @@ Draft a single comment:
 - No logs, no per-test comments
 
 Show the exact text and the screenshot list, then WAIT for approval.
-
-**While waiting, follow dashboard fixes.** If any test failed and the dashboard is running, start `node "<plugin>/dashboard/wait-for-fix.mjs"` in the background (Bash with `run_in_background: true`) before you end your turn, and tell the user in one line that a "Fix with Claude" from the dashboard will update this draft. Keep at most one watcher running. When it exits:
-- `Dashboard fix finished: ...`: say so in one line, rerun the targeted specs (step 4; never take results from the dashboard), redo steps 5 and 6, show the new draft, and WAIT for approval again. Start a new watcher if anything still fails.
-- Any other output (timeout, dashboard stopped): do nothing.
-Stop the watcher once the comment is posted or the user declines it.
 
 On approval:
 1. List the ticket's comments with `responseContentFormat: "html"` and find an existing `Unit test results (/uac-test:run)` comment. If one exists, copy its `Posted` line; if it has none, build one from the comment's `created` time. Then add `Edited <now>` after it, replacing any older `Edited` line. If none exists, write `Posted <now>`.
